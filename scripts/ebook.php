@@ -160,11 +160,23 @@
 	}	
 	       
            global $INPUT;
+           //global $conf;
             // $epub_ids = 'ditaa:win_filebrowser;;introduction;;v06;;features;;index:site_inx';  
             if(isset ($_POST['epub_ids'])) $epub_ids = rawurldecode($INPUT->post->str('epub_ids'));
             if(isset ($_POST['epub_titles'])) $e_titles = rawurldecode($INPUT->post->str('epub_titles'));
 			$epub_pages =  explode(';;',$epub_ids) ;
             $epub_titles = explode(';;',$e_titles) ;
+            if ($conf['useheading']) {
+                echo "Headings:\n";
+                for ($i=0; $i < count($epub_titles); $i++) {
+                    $title = $epub_titles[$i];
+                    $pageId = $epub_pages[$i];
+                    $pageName = noNS($pageId);
+                    if ($title === $pageName)
+                        $epub_titles[$i] = $title = p_get_first_heading($pageId);
+                    echo $title." [".$pageId."]\n";
+                }
+            }
             $epub_user_title = strpos($epub_pages[0], 'title') !== false ? true: false;
 	   	    epub_setup_book_skel($epub_user_title) ;			
             epub_opf_header($epub_user_title);

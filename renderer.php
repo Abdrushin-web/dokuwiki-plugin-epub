@@ -332,7 +332,11 @@
         
         function local_name($link,&$orig="", &$frag ="") {
             $base_name= basename($link['url']);
-            $title = $link['title']? ltrim($link['title'],':'): "";
+			$title = $link['title'] ?
+				ltrim($link['title'],':') :
+				$conf['useheading'] ?
+					p_get_first_heading($link['url']) :
+					"";
             list($starturl,$frag) = explode('#',$link['url']);
             if ($title) {
                 $name = $title;
