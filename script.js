@@ -9,6 +9,7 @@ function epub_show_throbber(user,client) {
 	params += "&title="+encodeURIComponent(epub_title);
 	
 	params+="&epub_ids="+epub_stringifyArray(epub_id);
+    params+="&epub_levels="+epub_stringifyArray(epub_level);
     params+="&epub_titles="+epub_stringifyArray(epub_wikilink);
   
     if(client) {
@@ -25,7 +26,7 @@ function epub_show_throbber(user,client) {
        regex=/Ebook:\s+(:?epub.*?\.epub)/;
        result = regex.exec(dom.innerHTML); 
 	   if(result) {
-           var epub='http://'+ location.host  + DOKU_BASE + 'lib/exe/fetch.php?media=' + result[1];
+           var epub = DOKU_BASE + 'lib/exe/fetch.php?media=' + result[1];
            dom.innerHTML +='<div><center><a href="' + epub + '" class="media mediafile mf_epub" title="' + result[1] +'">' + result[1] +'</a></center></div>';
 	   }
 	},

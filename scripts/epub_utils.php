@@ -5,23 +5,76 @@
 			/**
 			utilities
 			*/
+
+		function prepare_metadata()
+		{
+			global $conf;
+			$metadata['language'] = $conf['lang'];
+			$metadata['creator'] = rawurldecode($_POST['user']);
+			$metadata['creator.role'] = 'aut';
+			$url=rawurldecode($_POST['location']); 
+			$url=dirname($url);
+            $title=rawurldecode($_POST['title']);
+			if ($title) {
+				$title_items = explode('|', $title);
+				if (count($title_items) > 1) {
+					$title = array_shift($title_items);
+				}
+			}
+			$metadata['title'] = $title;
+            $unique_identifier = rtrim($url,'/');
+            $ident_title =  str_replace(' ', '_',strtolower(trim($title)));
+            $unique_identifier .= "/$ident_title";
+			$uniq_id = str_replace('/','', DOKU_BASE) . "_id";
+			$metadata['identifier'] = $unique_identifier;
+			$metadata['identifier.id'] = $uniq_id;
+			foreach	($title_items as $title_item) {
+				$index = strpos($title_item, '=');
+				if ($index !== false) {
+					$name = trim(substr($title_item, 0, $index));
+					if ($name) {
+						$value = trim(substr($title_item, $index + 1));
+						if ($value) {
+							$metadata[$name] = $value;
+						}
+					}
+				}
+			}
+            $dc_date =  date("r");
+			$metadata['date'] = $dc_date;
+			return $metadata;
+		}
+
+		function metadata_text($metadata)
+		{
+			//echo 'Metadata: '.print_r($metadata, true);
+			$dc = '';
+			foreach ($metadata as $name => $value) {
+				$is_attribute = strpos($name, '.') > 0;
+				if ($is_attribute)
+					continue;
+				// node
+				$dc .= '<dc:'.$name;
+				$prefix = $name.'.';
+				$attribute_names = array_filter(array_keys($metadata), function($i) use($prefix) { return strpos($i, $prefix) === 0; });
+				//echo $name.' attributes: '.print_r($attribute_names, true);
+				foreach	($attribute_names as $attribute_name) {
+					$attribute_name = substr($attribute_name, strlen($prefix));
+					$attribute_value = $metadata[$attribute_name];
+					$dc .= " $attribute_name=\"$attribute_value\"";
+				}
+				$dc .= ">$value</dc:$name>\n";
+			}
+			return $dc;
+		}
+
 	  /*
 	      Creates headers for both the .opf and .ncx files
       */
-		function epub_opf_header($user_title) {
-			global $conf;	
-			$lang = $conf['lang'];
-			$user= rawurldecode($_POST['user']);
-			$url=rawurldecode($_POST['location']); 
-			$url=dirname($url);
-            $title=rawurldecode($_POST['title']); 
-			
-            $unique_identifier = rtrim($url,'/');
-            $ident_title =  str_replace(' ', '_',strtolower(trim($title)));            
-            $unique_identifier .= "/$ident_title"; 
-            
-			$uniq_id = str_replace('/','', DOKU_BASE) . "_id";
-            $dc_date =  date("r");
+		function epub_opf_header($user_title)
+		{
+			$metadata = prepare_metadata();
+			$metadata_text = metadata_text($metadata);
             $epub_version = "fckglite";
             $info_data = file(EPUB_DIR . 'plugin.info.txt',FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
             for($i=0; $i<count($info_data); $i++) {
@@ -30,20 +83,16 @@
                 break;
                }
             }
-           
-           if(!$user_title) {			
+            if(!$user_title) {			
                $cover_png='<item id="cover-image" href="Images/cover.png" media-type="image/png"/>'. "\n";
             }
+			$uniq_id = $metadata['identifier.id'];
 			$outp = <<<OUTP
 <?xml version='1.0' encoding='utf-8'?>
 <package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" 
    unique-identifier="$uniq_id" version="2.0">
 <metadata>
-<dc:title>$title</dc:title>
-<dc:creator>$user</dc:creator>
-<dc:identifier id="$uniq_id">$unique_identifier</dc:identifier>
-<dc:language>$lang</dc:language>
-<dc:date>$dc_date</dc:date>
+$metadata_text
 <meta name="cover" content="cover-image" />
 <meta name="plugin version" content="$epub_version"/>
 </metadata>
@@ -58,7 +107,8 @@ OUTP;
 			
 			flush();
 			
-        $ncx=<<<NCX
+		$title = $metadata['title'];
+		$ncx=<<<NCX
 <?xml version="1.0"?>      
 <!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN"
  "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
@@ -212,7 +262,7 @@ FOOTER;
 	         $handle = epub_footnote_handle(true);
 			 if(!$handle) return;
 		     $item_num=epub_write_item('Text/footnotes.html', "application/xhtml+xml");
-			 epub_push_spine(array('Text/footnotes.html',$item_num));
+			 epub_push_spine(array('Text/footnotes.html',$item_num, 1));
 			 fwrite($handle,"\n</div></body></html>");		
 	   }
 	   
@@ -342,25 +392,30 @@ HEADER;
 	        }  
 		    $items = epub_push_spine();
 
-			array_unshift($items,array('Text/title.html'));
+			array_unshift($items,array('Text/title.html', '', 1));
             $num = 0;
+			$previousLevel = 0;
 			foreach($items as $page) {
 			    $num++;				
+				$level = $page[2];
 			    $page = $page[0];	
                 $title=epub_titlesStack();
                 if(!$page) continue;
                 if($title) echo "found $title for $page\n";
-				$navpoint=<<<NAVPOINT
+				$navpoint = '';
+				for ($l = $previousLevel; $l >= $level; $l--)
+					$navpoint .= " </navPoint>\n";
+				$previousLevel = $level;
+				$navpoint .= <<<NAVPOINT
  <navPoint id="np-$num" playOrder="$num">
   <navLabel>
-	<text>$title</text>
+   <text>$title</text>
   </navLabel>
   <content src="$page"/>
-</navPoint>
 NAVPOINT;
-             fwrite($opf_handle,"$navpoint\n");
+				fwrite($opf_handle,"$navpoint\n");
 			}
-		   fwrite($opf_handle,"</navMap>\n</ncx>\n");	
+		   fwrite($opf_handle," </navPoint>\n</navMap>\n</ncx>\n");
 		   fflush($opf_handle);
            fclose($opf_handle);
 		   

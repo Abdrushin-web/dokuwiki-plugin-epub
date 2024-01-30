@@ -110,15 +110,17 @@
 		    $external = false;       
             $src = trim($src);
             $out = "";
-            if(strpos($src,'http://') === 0) $external = true;
+            if(strpos($src,'http://') === 0 ||
+			   strpos($src,'https://') === 0)
+			   $external = true;
             if($external && !$this->allow_url_fopen)  {
                 $link = $this->create_external_link($src);
-                return $this->_formatLink($link);                
+                return $this->_formatLink($link);
             }
-			$src = $this->copy_media($src,$external);			
+			$src = $this->copy_media($src,$external);
 
 			if(strpos($mtype[1],'image') !== false)       {	             
-				$out .= $this->set_image($src,$width,$height,$align);           
+				$out .= $this->set_image($src, $title, $width, $height, $align);
 			}
             else if(strpos($mtype[1],'audio') !== false)       {	             
 				if($this->audio_link)  $out .= '</p><div style="text-align:center">' ;
@@ -172,9 +174,9 @@
 		
 		
 		function is_image($link,&$type) {
-			
-			if(strpos($link['class'],'media') === false)  {
-				$type=$link['class'];
+			$class = $link['class'];
+			if(strpos($class,'media') === false)  {
+				$type=$class;
 				return false;
 			}
 			
@@ -206,8 +208,12 @@
 		*/
 		
 		function _formatLink($link){
-			$type = "";           
+			$class = $link['class'];
+			$type = "";
            
+			// echo 'Link: ';
+			// print_r($link);
+
 			if($this->is_image($link,$type)) {
 				if(preg_match('#media\s*=\s*http#',$link['url'])) {
 					$name = $this->copy_media($link['title'],true);
@@ -240,60 +246,81 @@
 				$name = $this->copy_media($link['title']);
 				return $this->set_image($name);
 			}            
-            elseif($link['class'] == 'media' && strpos($link['name'],'<img') !== false) {  
+            else if($class == 'media' && strpos($link['name'],'<img') !== false) {  
+				$id = "";
+				$name = $this->local_name($link,$id,$frag);
+				// page inside
+				if ($this->is_epubid($id)) {
+					$name = epub_clean_name($name);
+					$name .='.html';
+					$link['url'] = $name;
+            		if($frag) $link['url'] .="#$frag";
+				}
+				// print_r($link);
                 $this->doc .= '<a href="'  .  $link['url']  .'" class="media" title="' . $link['title'] . '"  rel="nofollow">' . $link['name'] . '</a>';
                 return;
             }
-            
-			if((strpos($link['class'],'wikilink') !== false ) && $type!='media') {  //internal link	
-				$orig = "";
-				$name = $this->local_name($link,$orig,$frag);			
-				if(!$this->is_epubid($orig)) {		    
-					$doku_base = DOKU_BASE;
-					$doku_base = trim($doku_base,'/');							
-					$fnote =  DOKU_URL .  "doku.php?id=$orig";	
-					return $this->set_footnote($link,$fnote);
+            //internal link
+			if((strpos($class,'wikilink') !== false ) && $type!='media') {
+				$id = "";
+				$name = $this->local_name($link,$id,$frag);
+				// outside
+				if(!$this->is_epubid($id)) {
+					//echo "... skipped\n";
+					$link['class'] = 'urlextern';
+					return parent::_formatLink($link);
+					// $doku_base = DOKU_BASE;
+					// $doku_base = trim($doku_base,'/');							
+					// $fnote =  DOKU_URL .  "doku.php?id=$id";	
+					// return $this->set_footnote($link,$fnote);
 				}
-              
-               $name = epub_clean_name($name);
+               	// inside
+               	$name = epub_clean_name($name);
 				$name .='.html';
-                if($link['class'] == 'wikilink2') {
-                    $wfn =  wikiFN($orig);
+                if($class == 'wikilink2') {
+                    $wfn =  wikiFN($id);
                     if( file_exists($wfn) ) $link['class'] =  'wikilink1';                    
                 }
                 
 			}
 			else if($type=='media') {  //internal media
-				$orig = "";				
-				$name = $this->local_name($link,$orig);			
-                if(!empty($link['display'])) {                
-                    $link['name'] = $link['display'];                    
-                    if(strpos($link['class'],'mp3') !== false) {                       
-                    $orig = preg_replace('/^(' .  $this->audio_nmsp  . ')_/', "$1:", $orig);
-                        $orig = preg_replace('/^(' .  $this->audio_nmsp_orig  . ')_/', "$1:", $orig);  //two levels deep
+				$id = "";				
+				$name = $this->local_name($link,$id);
+				$display = $link['display'];
+                if(!empty($display)) {
+                    $link['name'] = $display;
+                    if(strpos($class,'mp3') !== false) {                       
+                    	$id = preg_replace('/^(' .  $this->audio_nmsp  . ')_/', "$1:", $id);
+                        $id = preg_replace('/^(' .  $this->audio_nmsp_orig  . ')_/', "$1:", $id);  //two levels deep
+						$link['url'] = ml($id, '', true, '&amp;', true);
                     }
-                    else if(strpos($link['class'],'mp4') !== false) {                        
-                        $orig = preg_replace('/^(' .  $this->video_nmsp  . ')_/', "$1:", $orig);
-                        $orig = preg_replace('/^(' .  $this->video_nmsp_orig  . ')_/', "$1:", $orig);                          
-                    }   
-                } 
-			    $note_url =  DOKU_URL .  "lib/exe/fetch.php?media=" . $orig;
-                $link['class'] = 'wikilink1';
-				$out = $this->set_footnote($link,$note_url);
-				$out=preg_replace('/<a\s+href=\'\'>(.*?)<\/a>(?=<a)/',"$1",$out);		//remove link markup from link name					
-				return $out;			   				
-			}
-			elseif($link['class'] != 'media') {   //  or urlextern	or samba share or . . .	
-                $out = $this->set_footnote($link,trim($link['url']));		// creates an entry in output for the link  with a live footnote to the link	
-                if(isset($link['type']) && $link['type'] == 'ext_media') {
-                    $this->doc .= $out;
+                    else if(strpos($class,'mp4') !== false) {                        
+                        $id = preg_replace('/^(' .  $this->video_nmsp  . ')_/', "$1:", $id);
+                        $id = preg_replace('/^(' .  $this->video_nmsp_orig  . ')_/', "$1:", $id);
+						$link['url'] = ml($id, '', true, '&amp;', true);
+                    }
                 }
-                else return $out;			  
+				return parent::_formatLink($link);
+				// $note_url =  DOKU_URL .  "lib/exe/fetch.php?media=" . $id;
+                // $link['class'] = 'wikilink1';
+				// $out = $this->set_footnote($link,$note_url);
+				// $out=preg_replace('/<a\s+href=\'\'>(.*?)<\/a>(?=<a)/',"$1",$out);		//remove link markup from link name
+				// return $out;
+			}
+			elseif($class != 'media') {   //  or urlextern	or samba share or . . .	
+				return parent::_formatLink($link);
+                // $out = $this->set_footnote($link,trim($link['url']));		// creates an entry in output for the link  with a live footnote to the link	
+                // if(isset($link['type']) && $link['type'] == 'ext_media') {
+                //     $this->doc .= $out;
+                // }
+                // else return $out;
 			}
 			
 			if(!$name) return;
 			$link['url'] = $name;			
             if($frag) $link['url'] .="#$frag";
+			// echo 'Prepared link: ';
+			// print_r($link);
 			return parent::_formatLink($link);
 		}
 		
@@ -302,22 +329,22 @@
                 $link = preg_replace('#[\.\/]*Images#', "../Images", $link );
                 return $link;
          }
-         function set_footnote($link, $note_url="") {
- 					$out = $link['name'];
-					$fn_id = epub_fn();
-					$link['name'] = "[$fn_id]";
-                    if(preg_match("/media\s*=\s*(http.*)/", $link['url'],$matches)) {   //format external  urls
-                        $note_url = urldecode($matches[1]);
-                    }
-					$link['url'] = 'footnotes.html#' .$this->current_page;					
-					$link['class'] = 'wikilink1';
-                    $id = 'backto_' . $fn_id;
-					$hash_link="<a id='$id' name='$id'></a>";
-					$out .= $hash_link . parent::_formatLink($link); // . '</a>';
-					epub_write_footnote($fn_id,$this->current_page,$note_url);
-					return $out;
+        //  function set_footnote($link, $note_url="") {
+ 		// 			$out = $link['name'];
+		// 			$fn_id = epub_fn();
+		// 			$link['name'] = "[$fn_id]";
+        //             if(preg_match("/media\s*=\s*(http.*)/", $link['url'],$matches)) {   //format external  urls
+        //                 $note_url = urldecode($matches[1]);
+        //             }
+		// 			$link['url'] = 'footnotes.html#' .$this->current_page;					
+		// 			$link['class'] = 'wikilink1';
+        //             $id = 'backto_' . $fn_id;
+		// 			$hash_link="<a id='$id' name='$id'></a>";
+		// 			$out .= $hash_link . parent::_formatLink($link); // . '</a>';
+		// 			epub_write_footnote($fn_id,$this->current_page,$note_url);
+		// 			return $out;
 
-         }
+        //  }
 		
         function smiley($smiley) {
             static $smileys;            
@@ -330,14 +357,16 @@
              } 
          }        
         
-        function local_name($link,&$orig="", &$frag ="") {
-            $base_name= basename($link['url']);
-			$title = $link['title'] ?
-				ltrim($link['title'],':') :
+        function local_name($link, &$id="", &$frag ="") {
+			$url = $link['url'];
+            $base_name= basename($url);
+			$title = $link['title'];
+			$title = $title ?
+				ltrim($title,':') :
 				$conf['useheading'] ?
-					p_get_first_heading($link['url']) :
+					p_get_first_heading($url) :
 					"";
-            list($starturl,$frag) = explode('#',$link['url']);
+            list($starturl,$frag) = explode('#',$url);
             if ($title) {
                 $name = $title;
             }  
@@ -346,9 +375,17 @@
             }
 
             if($name) {
-                $orig = ltrim($name,':');               
-                return epub_clean_name(str_replace(':','_',$name));
+				$more = $link['more'];
+				if ($more &&  preg_match('/data-wiki-id="([^"]*)"/', $more, $matches)) // page internallink
+					$id = $matches[1];
+				else
+					$id = $name;
+				$id = ltrim($id, ':');
+				$name = epub_clean_name(str_replace(':', '_', $id));
+				//echo '... '.($this->is_epubid($id) ? 'local' : 'external').', '.$name.' = '.$id."\n";
+				return $name;
             }
+			//echo "... no name\n";
             return false;
         }
 	
@@ -405,7 +442,7 @@
 			return false;
 		}
 	
-		function set_image($img,$width=null,$height=null,$align=null) {
+		function set_image($img, $title = null, $width=null, $height=null, $align=null) {
 			$w="";
 			$h="";
 			if($width)   $w= ' width="' . $width . '"';
@@ -414,9 +451,18 @@
             $class='media';
             if($align) {
                 $class .= $align;
-            }			
-			return '<img src="' . $img . '"' .  "$h $w " . ' alt="'. $img . '" class="' .  $class . '" />';
+            }
+			if (!$title)
+				$title = ' title="'.$title.'"';
+			$center = $align === 'center';
+			if ($center)
+				$result = '<div>';
+			$result .= '<img src="' . $img . '"' .  $h . $w . $title . ' alt="'. $img . '" class="' .  $class . '" />';
+			if ($center)
+				$result .= '</div>';
+			return $result;
 		}
+		
         function set_audio($src,$mtype,$title) {          
             $src = "../$src";
             $type = $mtype[1];

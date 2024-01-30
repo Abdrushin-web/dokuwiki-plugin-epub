@@ -126,10 +126,10 @@ $xcl = 'plugins/popularity|usermanager |plugins/upgrade|plugins/acl|plugins/plug
 
 
     // embed small images right into the stylesheet
-   // if($conf['cssdatauri']){
-      //  $base = preg_quote(DOKU_BASE,'#');
-       // $css = preg_replace_callback('#(url\([ \'"]*)('.$base.')(.*?(?:\.(png|gif)))#i','css_datauri',$css);
-    //}
+    if($conf['cssdatauri']){
+       $base = preg_quote(DOKU_BASE,'#');
+       $css = preg_replace_callback('#(url\([ \'"]*)('.$base.')(.*?(?:\.(png|gif|svg)))#i','css_datauri',$css);
+    }
 
   io_saveFile($path . 'Styles/style.css' ,$css);
 }
@@ -441,6 +441,10 @@ class DokuCssFile {
     }
 }
 
+const extension_svg = 'svg';
+const extension_png = 'png';
+const extension_gif = 'gif';
+
 /**
  * Convert local image URLs to data URLs if the filesize is small
  *
@@ -455,12 +459,33 @@ function css_datauri($match){
     $ext   = unslash($match[4]);
 
     $local = DOKU_INC.$url;
+    // echo $local;
+    // replace svg with png or gif if it exists
+    if (strcasecmp($ext, extension_svg) === 0)
+    {
+        $localAlternative = substr($local, 0, -3).extension_png;
+        if (file_exists($localAlternative))
+        {
+            $local = $localAlternative;
+            $url = substr($url, 0, -3).extension_png;
+        }
+        else
+        {
+            $localAlternative = substr($local, 0, -3).extension_gif;
+            if (file_exists($localAlternative))
+            {
+                $local = $localAlternative;
+                $url = substr($url, 0, -3).extension_gif;
+        }
+        }
+    }
     $size  = @filesize($local);
     if($size && $size < $conf['cssdatauri']){
         $data = base64_encode(file_get_contents($local));
     }
     if($data){
-        $url = 'data:image/'.$ext.';base64,'.$data;
+        $mimetype = mimetype($url)[1];
+        $url = 'data:'.$mimetype.';base64,'.$data;
     }else{
         $url = $base.$url;
     }

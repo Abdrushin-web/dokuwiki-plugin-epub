@@ -10,7 +10,8 @@
 	
 	class epub_creator {
 		private $_renderer;
-		function create($id, $user_title=false) {
+
+		function create($id, $level, $user_title=false) {
 			
             ob_start();
             $id = ltrim($id, ':');
@@ -35,7 +36,7 @@
 
 			$wiki_file = wikiFN($id);
 			if(!file_exists($wiki_file)) {
-                 epub_push_spine(array("",""));
+                 epub_push_spine(array("","", 1));
 			     echo htmlentities($id) . " not found\n";
 				 return false;
 			}
@@ -94,7 +95,12 @@
 			$result = preg_replace_callback(				
                      '|<area(.*?)>|im',	
                    function($matches) {
-					   if(strpos($matches[0], 'http') !== false) return $matches[0];  	//External link, no conversioon needed				
+                       echo '<p>'.$matches[0];
+					   if(strpos($matches[0], 'http') !== false) {
+                        echo ' external/p>';
+                        return $matches[0];  	//External link, no conversioon needed
+                       }
+                       echo ' internal</p>';
 					   $matches[0]= preg_replace_callback(
 					      '|href\s*=\s*([\"\'])(.*?)\1|m',     //test $matches[0]
 					      function($m) {
@@ -144,7 +150,7 @@
 				return true;
 			}
 			$item_num=epub_write_item("Text/$id", "application/xhtml+xml");
-			epub_push_spine(array("Text/$id",$item_num));
+			epub_push_spine(array("Text/$id", $item_num, $level));
             epub_save_namespace();
 
 			$ID = $oldID;
@@ -163,8 +169,10 @@
            //global $conf;
             // $epub_ids = 'ditaa:win_filebrowser;;introduction;;v06;;features;;index:site_inx';  
             if(isset ($_POST['epub_ids'])) $epub_ids = rawurldecode($INPUT->post->str('epub_ids'));
+            if(isset ($_POST['epub_levels'])) $epub_levels = rawurldecode($INPUT->post->str('epub_levels'));
             if(isset ($_POST['epub_titles'])) $e_titles = rawurldecode($INPUT->post->str('epub_titles'));
 			$epub_pages =  explode(';;',$epub_ids) ;
+            $epub_levels = explode(';;', $epub_levels);
             $epub_titles = explode(';;',$e_titles) ;
             if ($conf['useheading']) {
                 echo "Headings:\n";
@@ -182,9 +190,10 @@
             epub_opf_header($epub_user_title);
             if($epub_user_title) {
                 $creator = new epub_creator();
-                $creator->create($epub_pages[0], $epub_user_title);
-                array_shift($epub_pages);             
-                echo "processed: title page \n";             
+                $creator->create($epub_pages[0], 1, $epub_user_title);
+                array_shift($epub_pages);
+                array_shift($epub_levels);
+                echo "processed: [1] title page \n";
             }
             else {
                 array_unshift($epub_titles, 'Title Page');
@@ -197,11 +206,13 @@
             foreach($epub_pages as $page) {		
                 epub_update_progress("processing: $page");
                 $creator = new epub_creator();
-                if($creator->create($page)) {
-                if(isset ($_POST['epub_ids']))
-                    echo rawurlencode("processed: $page \n");
-                        else  
-                        echo "processed: $page \n";		
+                $level = array_shift($epub_levels);
+                if($creator->create($page, $level)) {
+                    $message = "processed: [$level] $page \n";
+                    if(isset ($_POST['epub_ids']))
+                        echo rawurlencode($message);
+                    else  
+                        echo $message;
                 }
             }
 			

@@ -78,19 +78,21 @@
 					$id = $INFO['id'];
 					$renderer->doc .= "\n<SCRIPT  type='text/javascript'>\n//<![CDATA[\n" ;
 					$renderer->doc .= "\nvar book_id = '$id';";
-					$renderer->doc .= "\nvar epub_wikilink = new Array();\nvar epub_id = new Array();\n";
+					$renderer->doc .= "\nvar epub_wikilink = new Array();\nvar epub_id = new Array();\nvar epub_level = new Array();\n";
 					$files = explode("\n",$match);
 
 					for($i=0;$i<count($files);$i++) {					      
-	                    $file = trim($files[$i],'][');
-		                list($file,$rest) = explode('|',$file);	
-						$file=trim($file);
+						$file = $files[$i];
+						$level = syntax_plugin_epub::parseUnorderedListItemLevel($file);
+						$file = trim($file,'][');
+		                list($file,$rest) = explode('|',$file);
 						$file=trim($file,'/');							 		
 						if(!$file) continue;				  
  						if(!auth_quickaclcheck($file)) { 							
 							continue;
 						}	
-						$renderer->doc .= "epub_id[$i]='" . str_replace('/',':',$file) . "';\n"	;			  
+						$renderer->doc .= "epub_id[$i]='" . str_replace('/',':',$file) . "';\n"	;
+						$renderer->doc .= "epub_level[$i]=$level;\n";
                         $rest = trim($rest," ][");
                         
                         if(!$rest) { 
@@ -104,7 +106,7 @@
                         $renderer->doc .= "epub_wikilink[$i]='" . str_replace('/',':',$rest) . "';\n"	;			  
 					}
 					
-					$renderer->doc .= 'epub_title="' . $this->title . '";';
+					$renderer->doc .= 'var epub_title = "' . $this->title . '";';
 					$renderer->doc .= "\n// ]]>\n</SCRIPT>\n";	
 					
 					
@@ -121,7 +123,25 @@
 			} 
 			// unsupported $mode
 			return false;
-		} 
+		}
+
+		public static function parseUnorderedListItemLevel(string &$text) : int
+		{
+			// page/namespace id with optional title and enclosing to internal wiki link
+			$id = ltrim($text);
+			$level = (strlen($text) - strlen($id)) / 2; // list indentation level
+			$text = rtrim($id);
+			// unordered list
+			if ($text &&
+				$text[0] == '*')
+			{
+				// strip unordered list
+				$text = ltrim($text, '* ');
+			}
+			else
+				$level = 1;
+			return $level;
+		}
 		
 		function write_debug($what) {  
 			return;
