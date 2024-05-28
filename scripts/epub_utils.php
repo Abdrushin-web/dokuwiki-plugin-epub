@@ -71,7 +71,7 @@
 	  /*
 	      Creates headers for both the .opf and .ncx files
       */
-		function epub_opf_header($user_title)
+		function epub_opf_header($user_title, $skip_default_title)
 		{
 			$metadata = prepare_metadata();
 			$metadata_text = metadata_text($metadata);
@@ -83,8 +83,10 @@
                 break;
                }
             }
-            if(!$user_title) {			
-               $cover_png='<item id="cover-image" href="Images/cover.png" media-type="image/png"/>'. "\n";
+			if ($user_title || !$skip_default_title)
+				$title_html = '<item id="cover" href="Text/title.html" media-type="application/xhtml+xml"/>'."\n";
+            if(!$user_title && !$skip_default_title) {
+               $cover_png='<item id="cover-image" href="Images/cover.png" media-type="image/png"/>'."\n";
             }
 			$uniq_id = $metadata['identifier.id'];
 			$outp = <<<OUTP
@@ -98,7 +100,7 @@ $metadata_text
 </metadata>
 <manifest>
 <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/> 
- <item id="cover" href="Text/title.html" media-type="application/xhtml+xml"/>
+ $title_html
  $cover_png
 OUTP;
 			
@@ -156,23 +158,31 @@ NCX;
 		    epub_css_out(epub_get_oebps()); 
 		}
 	 
-	    function epub_write_spine() {
+	    function epub_write_spine($use_title) {
 		    $items = epub_push_spine();
-			epub_opf_write('<spine toc="ncx">');	 
-			epub_opf_write('<itemref idref="cover" linear="no"/>');	 			    
+			epub_opf_write('<spine toc="ncx">');
+			if ($use_title)
+				epub_opf_write('<itemref idref="cover" linear="no"/>');	 			    
 			foreach($items as $page) {
 	            epub_opf_write('<itemref idref="' . $page[1] . '" linear="yes"/>');
 			}
 			epub_opf_write('</spine>');
 		}
 		
-		function epub_write_footer() {
-		$footer=<<<FOOTER
+		function epub_write_footer($use_title) {
+			if ($use_title) {
+				$footer=<<<FOOTER
   <guide>
     <reference href="Text/title.html" type="cover" title="Cover"/>
   </guide>		
 </package>
 FOOTER;
+			}
+		else {
+			$footer=<<<FOOTER
+</package>
+FOOTER;
+		}
 	     epub_opf_write($footer);
 		 $handle = epub_opf_write(null);
 		 fclose($handle);
@@ -382,7 +392,7 @@ HEADER;
 			then outputs closing tags to ncx file.  The header to
 			ncx file is created in epub_opf_header()
 		*/
-		function epub_write_ncx() {
+		function epub_write_ncx($use_title) {
 		    $toc  = epub_get_oebps()  . 'toc.ncx';      
 			
 	        $opf_handle= fopen($toc, 'a');
@@ -392,7 +402,8 @@ HEADER;
 	        }  
 		    $items = epub_push_spine();
 
-			array_unshift($items,array('Text/title.html', '', 1));
+			if ($use_title)
+				array_unshift($items,array('Text/title.html', '', 1));
             $num = 0;
 			$previousLevel = 0;
 			foreach($items as $page) {

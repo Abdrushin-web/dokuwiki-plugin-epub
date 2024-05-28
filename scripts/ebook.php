@@ -1,5 +1,7 @@
 <?php
-	
+
+use Mpdf\Tag\Tr;
+
 	if(!defined('DOKU_INC')) define('DOKU_INC',realpath(dirname(__FILE__).'/../../../../').'/');
 	if(!defined('NL')) define('NL',"\n");
 	if(!defined('EPUB_DIR')) define('EPUB_DIR',realpath(dirname(__FILE__).'/../').'/');
@@ -186,8 +188,9 @@
                 }
             }
             $epub_user_title = strpos($epub_pages[0], 'title') !== false ? true: false;
-	   	    epub_setup_book_skel($epub_user_title) ;			
-            epub_opf_header($epub_user_title);
+            $skip_default_title = true; // TODO: read from config
+	   	    epub_setup_book_skel($epub_user_title || $skip_default_title);
+            epub_opf_header($epub_user_title, $skip_default_title);
             if($epub_user_title) {
                 $creator = new epub_creator();
                 $creator->create($epub_pages[0], 1, $epub_user_title);
@@ -196,9 +199,14 @@
                 echo "processed: [1] title page \n";
             }
             else {
-                array_unshift($epub_titles, 'Title Page');
+                if ($skip_default_title)
+                    echo "skipping default title page \n";
+                else {
+                    echo "adding default title page \n";
+                    array_unshift($epub_titles, 'Title Page');
+                }
             }
-            epub_checkfor_ns($epub_pages[0],$epub_pages, $epub_titles);      
+            epub_checkfor_ns($epub_pages[0],$epub_pages, $epub_titles);
             array_push($epub_titles,"Footnotes");
             epub_titlesStack($epub_titles);
             $page_num = 0;
@@ -223,9 +231,9 @@
             epub_css($creator); 
             epub_write_item('Styles/style.css',"text/css");
             epub_opf_write('</manifest>');
-            epub_write_spine();
-            epub_write_footer();
-            epub_write_ncx();
+            epub_write_spine($user_title || !$skip_default_title);
+            epub_write_footer($user_title || !$skip_default_title);
+            epub_write_ncx($user_title || !$skip_default_title);
             epub_finalize_zip() ;
             epub_update_progress("packing  ebook");
             epub_pack_book();
