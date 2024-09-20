@@ -9,27 +9,27 @@ use Mpdf\Tag\Tr;
 	require_once(EPUB_DIR.'scripts/epub_utils.php');
 	global $entities;
 	$entities = unserialize(file_get_contents(EPUB_DIR . 'scripts/epub_ents.ser'));
-	
+
 	class epub_creator {
 		private $_renderer;
 
 		function create($id, $level, $user_title=false) {
-			
+
             ob_start();
             $id = ltrim($id, ':');
-            $id = ":$id";         
+            $id = ":$id";
             $namespace= getNS($id);
             epub_save_namespace($namespace);
             $mode ='epub';
-            $Renderer =& plugin_load('renderer',$mode);	    
+            $Renderer =& plugin_load('renderer',$mode);
             $Renderer->set_oebps() ;
             $Renderer->set_current_page(epub_clean_name(str_replace(':', '_', $id)) . '.html') ;
             $this->_renderer = $Renderer;
             if(is_null($Renderer)){
-                msg("No renderer for $mode found",-1);  
+                msg("No renderer for $mode found",-1);
                 exit;
             }
-		
+
 
 			global $ID;
 			$oldID = $ID;
@@ -45,8 +45,8 @@ use Mpdf\Tag\Tr;
             epub_update_progress("reading $id");
 			$instructions = p_cached_instructions($wiki_file, false, $id);
 			if(is_null($instructions)) return '';
-			
-			
+
+
 			$Renderer->notoc();
 			$Renderer->smileys = getSmileys();
 			$Renderer->entities = getEntities();
@@ -70,32 +70,32 @@ use Mpdf\Tag\Tr;
 			$result .= "\n<title>";
 			$result .= "</title>\n</head><body>\n";
 			$result .= "<div class='dokuwiki'>\n";
-			$info = $Renderer->info;       
+			$info = $Renderer->info;
 			$data = array($mode,& $Renderer->doc);
 			trigger_event('RENDERER_CONTENT_POSTPROCESS',$data);
-			
+
 			$xhtml = $Renderer->doc;
-			$result .= $xhtml;			
+			$result .= $xhtml;
             //handle image maps
-            if(strpos($result, 'usemap') !== false) {			
+            if(strpos($result, 'usemap') !== false) {
             $R = $Renderer;
-			$result = preg_replace_callback(				
+			$result = preg_replace_callback(
                      '|<img\s+src=\"(.*?)\"(.*?usemap.*?)>|im',
-				   function($matches)  use($R) {    
+				   function($matches)  use($R) {
                    if(strpos( $matches[1],'?') !== false) {
                        list($pre, $img) = explode('=', $matches[1]);
                    }
-                   else $img =  basename($matches[1]);                 
-               
+                   else $img =  basename($matches[1]);
+
                     $name = '../'. $R->copy_media($img);
                     echo "Map image name = $name\n";
                       return '<img src="' . $name . '"' . $matches[2] . '>';
 					},
 					$result
-                   );			
-             //Convert internal links to localized epub links      
-			$result = preg_replace_callback(				
-                     '|<area(.*?)>|im',	
+                   );
+             //Convert internal links to localized epub links
+			$result = preg_replace_callback(
+                     '|<area(.*?)>|im',
                    function($matches) {
                        echo '<p>'.$matches[0];
 					   if(strpos($matches[0], 'http') !== false) {
@@ -109,23 +109,23 @@ use Mpdf\Tag\Tr;
 							  if(stripos($m[0],'javascript:') !== false) {
 							     return $m[0];   // we do no convert javascript links
 							  }
-                            $patterns = array('!^' . preg_quote(DOKU_BASE) . '!', "/^doku.php/","!^\?\s*id\s*=\s*!");           
+                            $patterns = array('!^' . preg_quote(DOKU_BASE) . '!', "/^doku.php/","!^\?\s*id\s*=\s*!");
                             $_REQUEST['epubid'] = preg_replace($patterns,  "", $m[2]);
-                            $id = getID('epubid') . '.html' ;   
-                            $id = "../Text/" . str_replace(':','_',$id) ;                        
+                            $id = getID('epubid') . '.html' ;
+                            $id = "../Text/" . str_replace(':','_',$id) ;
                             echo "revised url: " . htmlentities($id)."\n";
-                            return "href='$id'";                            
+                            return "href='$id'";
 						  },$matches[0]);
 					   return $matches[0];
 				   }, $result
-               
-                  );  				   
- 
-            } 
-			$result .= "\n</div></body></html>\n";		
-			$result =  preg_replace_callback("/&(\w+);/m", "epbub_entity_replace", $result );  				
-			$result = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/m", "\n", $result);	
-			$result = preg_replace("/^\s+/m", "", $result );  				
+
+                  );
+
+            }
+			$result .= "\n</div></body></html>\n";
+			$result =  preg_replace_callback("/&(\w+);/m", "epbub_entity_replace", $result );
+			$result = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/m", "\n", $result);
+			$result = preg_replace("/^\s+/m", "", $result );
 			$result = preg_replace_callback(
 			                          '|<p>([\s\n]*)(.*?<div.*?/div>.*?)([\s\n])*<\/p>|im',
 									   create_function(
@@ -142,11 +142,11 @@ use Mpdf\Tag\Tr;
                 $id = 'title.html';
             }
             else {
-            $id = epub_clean_name(str_replace(':', '_', $id)) . '.html';
-               }
-             io_saveFile(epub_get_oebps() ."Text/$id",$result);
-            
-			if($user_title) {				
+                $id = epub_clean_name(str_replace(':', '_', $id)) . '.html';
+            }
+            io_saveFile(epub_get_oebps() ."Text/$id",$result);
+
+			if($user_title) {
 			    epub_write_zip('Text/title.html');
                 $ID = $oldID;
 				return true;
@@ -158,18 +158,18 @@ use Mpdf\Tag\Tr;
 			$ID = $oldID;
 
 			return true;
-		}  
-		
+		}
+
 		function get_renderer	() {
 			return $this->_renderer;
 		}
-		
-			
-	}	
-	       
+
+
+	}
+
            global $INPUT;
            //global $conf;
-            // $epub_ids = 'ditaa:win_filebrowser;;introduction;;v06;;features;;index:site_inx';  
+            // $epub_ids = 'ditaa:win_filebrowser;;introduction;;v06;;features;;index:site_inx';
             if(isset ($_POST['epub_ids'])) $epub_ids = rawurldecode($INPUT->post->str('epub_ids'));
             if(isset ($_POST['epub_levels'])) $epub_levels = rawurldecode($INPUT->post->str('epub_levels'));
             if(isset ($_POST['epub_titles'])) $e_titles = rawurldecode($INPUT->post->str('epub_titles'));
@@ -211,7 +211,7 @@ use Mpdf\Tag\Tr;
             epub_titlesStack($epub_titles);
             $page_num = 0;
             $creator = false;
-            foreach($epub_pages as $page) {		
+            foreach($epub_pages as $page) {
                 epub_update_progress("processing: $page");
                 $creator = new epub_creator();
                 $level = array_shift($epub_levels);
@@ -219,26 +219,25 @@ use Mpdf\Tag\Tr;
                     $message = "processed: [$level] $page \n";
                     if(isset ($_POST['epub_ids']))
                         echo rawurlencode($message);
-                    else  
+                    else
                         echo $message;
                 }
             }
-			
-            if(epub_footnote_handle(true)) {			
+
+            if(epub_footnote_handle(true)) {
 				epub_close_footnotes();
 			}
-			
-            epub_css($creator); 
+
+            epub_css($creator);
             epub_write_item('Styles/style.css',"text/css");
             epub_opf_write('</manifest>');
-            epub_write_spine($user_title || !$skip_default_title);
-            epub_write_footer($user_title || !$skip_default_title);
-            epub_write_ncx($user_title || !$skip_default_title);
+            epub_write_spine($epub_user_title || !$skip_default_title);
+            epub_write_footer($epub_user_title || !$skip_default_title);
+            epub_write_ncx($epub_user_title || !$skip_default_title);
             epub_finalize_zip() ;
             epub_update_progress("packing  ebook");
             epub_pack_book();
 		    epub_update_progress();  // deletes progress file
-		
-			
-			exit;			
-	
+
+
+			exit;
