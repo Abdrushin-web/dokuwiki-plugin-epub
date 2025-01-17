@@ -777,3 +777,58 @@ MATHJAX;
           function epub_clean_name($name) {
               return ltrim($name,'_');
           }
+
+        function is_external_uri($uri) {
+            return
+                strpos($uri,'http://') === 0 ||
+                strpos($uri,'https://') === 0;
+        }
+
+        function prepend_before_file_extension($path, $prepend) {
+            $info = pathinfo($path);
+            $dir = $info['dirname'];
+            $result = $dir ?
+                $dir.DIRECTORY_SEPARATOR :
+                '';
+            $result .= $info['filename'].$prepend;
+            $ext = $info['extension'];
+            if ($ext)
+                $result .= '.'.$ext;
+            return $result;
+        }
+
+        // function parse_tag_attributes($tag) {
+        //     $xml = new SimpleXMLElement($tag);
+        //     $attributes = iterator_to_array($xml->attributes());
+        //     return $attributes;
+        // }
+
+        function parse_tag_attribute($tag, $attribute_name) {
+            $index = strpos($tag, $attribute_name);
+            if (!$index)
+                return NULL;
+            $value = substr($tag, $index + strlen($attribute_name));
+            $value = trim($value);
+            $index = strpos($value, '=');
+            if ($index !== 0)
+                return NULL;
+            $value = substr($value, 1);
+            $value = trim($value);
+            $index = strpos($value, '"');
+            if ($index !== 0)
+                return NULL;
+            $value = substr($value, 1);
+            $index = strpos($value, '"');
+            if (!$index)
+                return NULL;
+            $value = substr($value, 0, $index);
+            return $value;
+        }
+
+        function parse_tag_attribute_int($tag, $attribute_name) {
+            $text = parse_tag_attribute($tag, $attribute_name);
+            if (!$text)
+                return NULL;
+            $value = intval($text);
+            return $value;
+        }
