@@ -112,7 +112,7 @@
         /**
         * Wrap centered media in a div to center it
 		*/
-		function _media ($src, $title=NULL, $align=NULL, $width=NULL, $height=NULL, $cache=NULL, $render = true) {
+		function _media($src, $title=NULL, $align=NULL, $width=NULL, $height=NULL, $cache=NULL, $render = true) {
 
 			$mtype = mimetype($src);
 			if(!$title) $title = $src;
@@ -155,7 +155,8 @@
                     }
          }
 			else {
-				$out .= "<a href='$src'>$title</a>";
+                $out .= parent::_media($src, $title, $align, $width, $height, $cache, $render);
+				//$out .= "<a href='$src'>$title</a>";
 			}
 			return $out;
 		}
@@ -501,7 +502,7 @@
             if($align) {
                 $class .= $align;
             }
-			if (!$title)
+			if ($title)
 				$title = ' title="'.$title.'"';
 			$center = $align === 'center';
 			if ($center)
