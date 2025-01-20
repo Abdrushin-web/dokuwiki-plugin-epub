@@ -412,7 +412,10 @@ HEADER;
 			    $page = $page[0];
                 $title=epub_titlesStack();
                 if(!$page) continue;
-                if($title) echo "found $title for $page\n";
+                if($title) {
+                    $title = html_entity_decode($title);
+                    echo "found $title for $page\n";
+                }
 				$navpoint = '';
 				for ($l = $previousLevel; $l >= $level; $l--)
 					$navpoint .= " </navPoint>\n";
