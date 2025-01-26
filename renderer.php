@@ -3,6 +3,8 @@
 
 	*/
 
+use Mpdf\Tag\Tr;
+
 	// must be run within Dokuwiki
 	if (!defined('DOKU_INC')) die();
 
@@ -409,9 +411,6 @@
         }
 
         function copy_internal_image($media, $img) {
-            //$img_attributes = parse_tag_attributes($img);
-            //$width = $img_attributes['width'];
-            //$height = $img_attributes['height'];
             $width = parse_tag_attribute_int($img, 'width');
             $height = parse_tag_attribute_int($img, 'height');
             return $this->copy_media($media, false, $width, $height);
@@ -419,8 +418,9 @@
 
 		function copy_media($media, $external=false, $width=NULL, $height=NULL) {
 
+            // echo 'copy_media '.$media."\n";
 			$name =  epub_clean_name(str_replace(':','_',basename($media)));
-            $ret_name = $name;
+            // echo ' name '.$name."\n";
 
 			$mime_type = mimetype($name);
 			list($type,$ext) = explode('/', $mime_type[1] );
@@ -460,34 +460,45 @@
                     )) {
                     $file = $this->oebps . $name;
 			        if (!file_exists($file)) {
-                        $external = true;
-                        $more = [];
+                        $resize = true;
+
+                        //$external = true;
+                        // $more = [];
                         if ($width) {
                             $name = prepend_before_file_extension($name, '.w' . $width);
-                            $more['w'] = $width;
+                            //  $more['w'] = $width;
                         }
                         if ($height) {
                             $name = prepend_before_file_extension($name, '.h' . $height);
-                            $more['h'] = $height;
+                            //  $more['h'] = $height;
                         }
-                        $media = ml($media, $more, true, '&', true);
+                        $media = media_resize_image(mediaFN($media), $ext, $width, $height);
+                        // echo ' resized media '.$media."\n";
+                        // $media2 = $media;
+                        // $media = ml($media, $more, true, '&', true);
+                        // echo ' ml '.$media."\n";
                     }
                 }
             }
 
 		    $file = $this->oebps . $name;
-			if(file_exists($file)) return $name;
-			if(!$external) {
+
+			if(file_exists($file))
+                return $name;
+
+			if(!$external && !$resize) {
 				$media = mediaFN($media);
+                // echo ' mediaFN '.$media."\n";
 			}
 
+            // echo ' file '.$file."\n";
 			if(copy ($media ,  $file)) {
 				epub_write_item($name,$mime_type[1]) ;
 				return $name;
 			}
             else if(!$this->isWin && epub_save_image($media ,  $file)) {
-            	epub_write_item($name,$mime_type[1]) ;
-				return $name;
+                epub_write_item($name,$mime_type[1]) ;
+                return $name;
             }
 			return false;
 		}

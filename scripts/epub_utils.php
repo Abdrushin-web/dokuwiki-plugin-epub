@@ -542,35 +542,38 @@ NAVPOINT;
             $plugin =& plugin_load('syntax','epub');
 			$oldname = $meta . 'my-book.epub';
             $rmdir= $plugin->getConf('rmdir');
-			$epub_file = strtolower(date("Y_F_j_h-i-s") ) . '.epub';
+            $title = prepare_metadata()['title'];
+			$epub_file = $title . '_' . date("Y-m-d-H-i-s") . '.epub';
 			$newname = mediaFN("epub:$user:$epub_file");
 			if(rename ($oldname , $newname )) {
                 $epub_id = cleanID("epub:$user:$epub_file");
                	$helper = new  helper_plugin_epub();
                 $id = cleanID(rawurldecode($_POST['book_page']));
                 echo "ebook id=$id\n";
-                $title=rawurldecode($_POST['title']);
+                // $title=rawurldecode($_POST['title']);
                 $helper->addBook($id,$epub_id,$title);
 			    echo "New Ebook: $epub_id\n" ;
                 $helper->delete_dw_cachefiles($id);
 			}
 
              if($rmdir == 'y') {
-                if(epub_isWindows()) {
-                  $meta = str_replace('/','\\',$meta);
-                   $cmd = "RMDIR /s /q $meta";
-                }
-                else {
-                    $cmd ="rm -f -r $meta";
-                }
+                io_rmdir($meta, true);
 
-                system($cmd,$retval);
-                if($retval)  {
-                   echo "unable to remove dir:<br />&nbsp;&nbsp;$meta<br />&nbsp;&nbsp;error code: $retval\n";
-                 }
-                 else {
-                     echo "$cmd\n";
-                 }
+                // if(epub_isWindows()) {
+                //   $meta = str_replace('/','\\',$meta);
+                //    $cmd = "RMDIR /s /q $meta";
+                // }
+                // else {
+                //     $cmd ="rm -f -r $meta";
+                // }
+
+                // system($cmd,$retval);
+                // if($retval)  {
+                //    echo "unable to remove dir:<br />&nbsp;&nbsp;$meta<br />&nbsp;&nbsp;error code: $retval\n";
+                //  }
+                //  else {
+                //      echo "$cmd\n";
+                //  }
              }
 
 		}
@@ -799,12 +802,6 @@ MATHJAX;
                 $result .= '.'.$ext;
             return $result;
         }
-
-        // function parse_tag_attributes($tag) {
-        //     $xml = new SimpleXMLElement($tag);
-        //     $attributes = iterator_to_array($xml->attributes());
-        //     return $attributes;
-        // }
 
         function parse_tag_attribute($tag, $attribute_name) {
             $index = strpos($tag, $attribute_name);
