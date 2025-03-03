@@ -25,9 +25,9 @@
             $unique_identifier = rtrim($url,'/');
             $ident_title =  str_replace(' ', '_',strtolower(trim($title)));
             $unique_identifier .= "/$ident_title";
-			$uniq_id = str_replace('/','', DOKU_BASE) . "_id";
+			//$uniq_id = str_replace('/','', DOKU_BASE) . "_id";
 			$metadata['identifier'] = $unique_identifier;
-			$metadata['identifier.id'] = $uniq_id;
+			$metadata['identifier.id'] = "book_id";
 			foreach	($title_items as $title_item) {
 				$index = strpos($title_item, '=');
 				if ($index !== false) {
@@ -60,7 +60,7 @@
 				//echo $name.' attributes: '.print_r($attribute_names, true);
 				foreach	($attribute_names as $attribute_name) {
 					$attribute_name = substr($attribute_name, strlen($prefix));
-					$attribute_value = $metadata[$attribute_name];
+					$attribute_value = $metadata[$name . '.' . $attribute_name];
 					$dc .= " $attribute_name=\"$attribute_value\"";
 				}
 				$dc .= ">$value</dc:$name>\n";
@@ -430,7 +430,7 @@ NAVPOINT;
 				fwrite($opf_handle,"$navpoint\n");
 			}
             $navpoint = '';
-            for ($l = $previousLevel; $l >= $level; $l--)
+            for ($l = 0; $l < $level; $l++)
                 $navpoint .= " </navPoint>\n";
 		   fwrite($opf_handle," $navpoint</navMap>\n</ncx>\n");
 		   fflush($opf_handle);
